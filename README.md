@@ -182,7 +182,31 @@ On a Unix-like shell with `sh` available, it can be run from the repository root
 sh run_demo.sh
 ```
 
-Do not use this script when demonstrating the real-data artifact. For the real-data application, follow the training and API startup commands above and set `ARTIFACTS=artifacts/delhi_real`.
+### Run the synthetic demo on Windows PowerShell
+
+From the repository root, activate your Python 3.11 virtual environment and run the following commands one at a time:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m busgps.synth --out data/synth
+python -m busgps.pipeline --gtfs data/synth --gps data/synth/gps.csv.gz --out artifacts/synth --train-until 2026-11-05
+python -m busgps.validate --gps data/synth/gps.csv.gz --artifacts artifacts/synth
+$env:ARTIFACTS = "artifacts/synth"
+python -m uvicorn busgps.api:app --host 127.0.0.1 --port 8000
+```
+
+When the API starts, open:
+
+- Web interface: http://127.0.0.1:8000/
+- Interactive API documentation: http://127.0.0.1:8000/docs
+- Model metadata: http://127.0.0.1:8000/meta
+
+If port `8000` is already in use, choose another port (for example, `8001`) in the Uvicorn command and use that port in the browser URLs.
+
+The validation script prints a warning that synthetic results demonstrate end-to-end pipeline execution only; they are **not evidence of prediction accuracy on Delhi buses**.
+
+Do not use this workflow when demonstrating the real-data artifact. For the real-data application, follow the training and API startup commands above and set `ARTIFACTS=artifacts/delhi_real`.
 
 ## Validation summary
 
@@ -229,8 +253,8 @@ Do not commit API keys, feed credentials, private raw GPS recordings or large ge
 
 ## Team
 
-- Team name: [Add team name]
-- Members: [Add member names]
+- Team name: SAFARAI
+- Members: Siddharth Verma & Pranav Aggarwal
 
 ## Acknowledgements
 
