@@ -1,0 +1,8 @@
+numpy
+pandas
+scipy
+h3>=4
+fastapi
+uvicorn
+httpx
+gtfs-realtime-bindings

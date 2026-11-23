@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delhi bus journey planner</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --ink:#1d242b; --paper:#f3f3ee; --line:#cfd3cb; --accent:#0f5c4d; --warn:#b4452a; --muted:#5b6670; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--paper);
+         display: grid; grid-template-columns: 400px 1fr; }
+  aside { overflow-y: auto; padding: 16px 18px 24px; border-right: 1px solid var(--line); }
+  #map { height: 100%; min-height: 360px; }
+  h1 { font-size: 19px; margin: 0 0 12px; font-weight: 650; letter-spacing: -0.01em; }
+  .banner { background: #fff3cd; border: 1px solid #e6cf7a; padding: 8px 10px; font-size: 13px; margin-bottom: 12px; display: none; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 3px; }
+  input[type=text], input[type=datetime-local] { width: 100%; padding: 8px 9px; border: 1px solid var(--line); background: #fff; font: inherit; }
+  .row { display: flex; gap: 8px; }
+  button { font: inherit; padding: 9px 14px; border: 1px solid var(--ink); background: var(--ink); color: #fff; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  button:focus-visible, input:focus-visible { outline: 3px solid #7fb7a9; outline-offset: 1px; }
+  .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+  .opt { background: #fff; border: 1px solid var(--line); margin-top: 12px; padding: 11px 12px; cursor: pointer; }
+  .opt.sel { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+  .big { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .delay { color: var(--warn); font-weight: 600; }
+  .leg { font-size: 13.5px; padding: 3px 0; display: flex; gap: 8px; }
+  .leg b { flex: 0 0 92px; overflow-wrap: anywhere; }
+  .chip { font-size: 12px; padding: 1px 7px; border: 1px solid var(--line); margin-left: 6px; }
+  .chip.high { border-color: #5a9a7f; } .chip.low { border-color: var(--warn); color: var(--warn); }
+  .legend { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-top: 14px; }
+  .ramp { height: 8px; width: 120px; background: linear-gradient(90deg, #c0392b, #e8a317, #2e8b57); }
+  details { margin-top: 14px; font-size: 13px; color: var(--muted); }
+  @media (max-width: 800px) { body { grid-template-columns: 1fr; grid-template-rows: auto 55vh; height: auto; } aside { border-right: 0; } }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Bus journey planner</h1>
+  <div id="banner" class="banner"><b>Synthetic demo data.</b> The network and speeds are generated, not Delhi's real buses.</div>
+  <label for="from">From</label>
+  <input id="from" type="text" placeholder="Click the map, or type a stop name or lat,lon">
+  <label for="to">To</label>
+  <input id="to" type="text" placeholder="Click the map again for the destination">
+  <label for="when">Leave at</label>
+  <input id="when" type="datetime-local">
+  <p class="hint" id="hint">Click the map to set the start, then the destination.</p>
+  <div class="row" style="margin-top:10px">
+    <button id="go">Find journeys</button>
+    <button id="clear" class="ghost">Clear</button>
+  </div>
+  <div id="out"></div>
+  <div class="legend" id="legend"><span>Bus speed on map</span><span class="ramp"></span><span>slow to fast</span></div>
+  <details><summary>How to read this</summary>
+    <p>The big number is the estimate for the chosen departure time. "Usually" is the same trip at the quietest hour in the data.
+    The range is the typical spread; it assumes delays on neighbouring stretches go together, so it is wide on purpose.
+    Confidence is low where the model had little data and fell back to the timetable.</p>
+  </details>
+</aside>
+<div id="map" role="application" aria-label="Map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const map = L.map('map');
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap'}).addTo(map);
+let speedLayer = L.layerGroup().addTo(map), routeLayer = L.layerGroup().addTo(map), markers = [];
+let meta = null, options = [];
+
+const pad = n => String(n).padStart(2, '0');
+function nowLocal() { const d = new Date(); d.setSeconds(0, 0); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes()); }
+$('when').value = nowLocal();
+
+const color = kmh => kmh < 10 ? '#c0392b' : kmh < 16 ? '#e8a317' : kmh < 22 ? '#b5b530' : '#2e8b57';
+
+async function loadSpeeds() {
+  const b = map.getBounds(), w = $('when').value || nowLocal();
+  const day = new Date(w).getDay(), dt = (day === 0 || day === 6) ? 'we' : 'wd';
+  const q = new URLSearchParams({daytype: dt, hour: +w.slice(11,13), minute: +w.slice(14,16),
+    south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast()});
+  const segs = await (await fetch('/segments?' + q)).json();
+  speedLayer.clearLayers();
+  segs.forEach(s => L.polyline(s.line, {color: color(s.kmh), weight: 4, opacity: .75})
+    .bindTooltip(`${s.route}: ${s.kmh} km/h`).addTo(speedLayer));
+}
+
+function setPoint(i, latlng) {
+  const txt = latlng.lat.toFixed(5) + ',' + latlng.lng.toFixed(5);
+  $(i ? 'to' : 'from').value = txt;
+  if (markers[i]) map.removeLayer(markers[i]);
+  markers[i] = L.marker(latlng).addTo(map).bindTooltip(i ? 'To' : 'From');
+  $('hint').textContent = i ? 'Press Find journeys.' : 'Now click the destination.';
+}
+map.on('click', e => { if (!markers[0] || markers[1]) { markers.forEach(m => m && map.removeLayer(m)); markers = []; $('to').value = ''; setPoint(0, e.latlng); } else setPoint(1, e.latlng); });
+map.on('moveend', loadSpeeds);
+$('when').addEventListener('change', loadSpeeds);
+$('clear').onclick = () => { markers.forEach(m => m && map.removeLayer(m)); markers = []; $('from').value = $('to').value = ''; $('out').innerHTML = ''; routeLayer.clearLayers(); $('hint').textContent = 'Click the map to set the start, then the destination.'; };
+
+function legHtml(l) {
+  if (l.type === 'walk') return `<div class="leg"><b>Walk</b><span>${Math.round(l.minutes)} min${l.note ? ' to transfer' : ''} (${l.meters} m)</span></div>`;
+  return `<div class="leg"><b>Bus ${l.route}</b><span>${l.board} to ${l.alight}, ${l.stops} stops. Wait ~${Math.round(l.wait_minutes)} min, ride ${Math.round(l.ride_minutes)} min
+    <span class="chip ${l.confidence}">${l.confidence} confidence</span>${l.live_adjusted ? '<span class="chip">live adjusted</span>' : ''}</span></div>`;
+}
+
+function show(i) {
+  routeLayer.clearLayers();
+  document.querySelectorAll('.opt').forEach((e, k) => e.classList.toggle('sel', k === i));
+  options[i].legs.filter(l => l.type === 'bus').forEach(l => L.polyline(l.path, {color: '#0f5c4d', weight: 7, opacity: .9}).addTo(routeLayer));
+}
+
+$('go').onclick = async () => {
+  const out = $('out');
+  out.innerHTML = '<p class="hint">Searching...</p>';
+  const q = new URLSearchParams({from: $('from').value, to: $('to').value, depart: $('when').value, n: 3});
+  const r = await fetch('/journeys?' + q);
+  const j = await r.json();
+  if (!r.ok) { out.innerHTML = `<p class="hint" style="color:var(--warn)">${j.detail || 'Request failed.'}</p>`; return; }
+  options = j.options;
+  if (!options.length) { out.innerHTML = '<p class="hint">No bus journey found within walking distance of both points. Try points closer to a route.</p>'; return; }
+  out.innerHTML = options.map((o, i) => {
+    const hasQ = o.typical_quiet_minutes != null;
+    const diff = hasQ ? Math.round(o.total_minutes - o.typical_quiet_minutes) : 0;
+    const routes = o.legs.filter(l => l.type === 'bus').map(l => l.route).join(' then ');
+    return `<div class="opt" data-i="${i}" tabindex="0">
+      <div class="big">${Math.round(o.total_minutes)} min <span class="sub">arrive ${o.arrive}</span></div>
+      <div class="sub">${routes}. Range ${Math.round(o.range_minutes[0])} to ${Math.round(o.range_minutes[1])} min.</div>
+      ${hasQ ? `<div class="sub">Usually ${Math.round(o.typical_quiet_minutes)} min at ${o.quiet_hour}${diff >= 2 ? ` <span class="delay">(+${diff} min now)</span>` : ''}</div>` : ''}
+      <div style="margin-top:6px">${o.legs.map(legHtml).join('')}</div></div>`;
+  }).join('');
+  document.querySelectorAll('.opt').forEach(e => { e.onclick = () => show(+e.dataset.i); e.onkeydown = ev => { if (ev.key === 'Enter') show(+e.dataset.i); }; });
+  show(0);
+  map.fitBounds(routeLayer.getBounds().pad(0.2));
+};
+
+(async () => {
+  meta = await (await fetch('/meta')).json();
+  if (meta.source === 'synthetic') $('banner').style.display = 'block';
+  if (meta.mode === 'timetable_only') { $('banner').innerHTML = '<b>Timetable-only mode.</b> No GPS history was used, so times come from the timetable and are adjusted by live bus positions where available.'; $('banner').style.display = 'block'; }
+  map.setView(meta.center, 12);
+  const train = meta.train_until;
+  if (train) $('when').value = train + 'T08:30';
+  else if (meta.mode === 'timetable_only') document.getElementById('legend').style.display = 'none';
+  loadSpeeds();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+{
+  "source": "synthetic",
+  "test_from": "2026-11-05",
+  "pairs": 4124,
+  "by_group": {
+    "all": {
+      "model": {
+        "n": 4124,
+        "mae_min": 1.18,
+        "mape_pct": 14.5,
+        "bias_min": 0.9
+      },
+      "timetable": {
+        "n": 4124,
+        "mae_min": 2.21,
+        "mape_pct": 20.2,
+        "bias_min": -2.14
+      }
+    },
+    "peak=off-peak": {
+      "model": {
+        "n": 3286,
+        "mae_min": 1.19,
+        "mape_pct": 15.8,
+        "bias_min": 1.07
+      },
+      "timetable": {
+        "n": 3286,
+        "mae_min": 1.35,
+        "mape_pct": 14.9,
+        "bias_min": -1.26
+      }
+    },
+    "peak=peak": {
+      "model": {
+        "n": 838,
+        "mae_min": 1.15,
+        "mape_pct": 9.4,
+        "bias_min": 0.23
+      },
+      "timetable": {
+        "n": 838,
+        "mae_min": 5.57,
+        "mape_pct": 41.1,
+        "bias_min": -5.57
+      }
+    },
+    "daytype=wd": {
+      "model": {
+        "n": 2219,
+        "mae_min": 1.16,
+        "mape_pct": 13.4,
+        "bias_min": 0.73
+      },
+      "timetable": {
+        "n": 2219,
+        "mae_min": 2.96,
+        "mape_pct": 25.1,
+        "bias_min": -2.92
+      }
+    },
+    "daytype=we": {
+      "model": {
+        "n": 1905,
+        "mae_min": 1.22,
+        "mape_pct": 15.8,
+        "bias_min": 1.1
+      },
+      "timetable": {
+        "n": 1905,
+        "mae_min": 1.32,
+        "mape_pct": 14.6,
+        "bias_min": -1.23
+      }
+    },
+    "conf=high": {
+      "model": {
+        "n": 4113,
+        "mae_min": 1.19,
+        "mape_pct": 14.5,
+        "bias_min": 0.9
+      },
+      "timetable": {
+        "n": 4113,
+        "mae_min": 2.21,
+        "mape_pct": 20.3,
+        "bias_min": -2.14
+      }
+    },
+    "conf=low": {
+      "model": {
+        "n": 2,
+        "mae_min": 0.59,
+        "mape_pct": 14.4,
+        "bias_min": 0.59
+      },
+      "timetable": {
+        "n": 2,
+        "mae_min": 1.33,
+        "mape_pct": 12.7,
+        "bias_min": -1.04
+      }
+    },
+    "conf=medium": {
+      "model": {
+        "n": 9,
+        "mae_min": 0.8,
+        "mape_pct": 13.0,
+        "bias_min": 0.74
+      },
+      "timetable": {
+        "n": 9,
+        "mae_min": 1.28,
+        "mape_pct": 10.0,
+        "bias_min": -1.25
+      }
+    }
+  }
+}
