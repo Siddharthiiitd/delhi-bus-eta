@@ -57,7 +57,8 @@ def metrics(d, a, b):
 def evaluate(gtfs_gps, artifacts, seed=0):
     model, net = load_artifacts(artifacts)
     df = prepare(gtfs_gps, net)
-    test = df[df.date >= model.meta["train_until"]]
+    cut = model.meta.get("train_until_t")
+    test = df[df.t >= cut] if cut is not None else df[df.date >= model.meta["train_until"]]
     pr = observed_pairs(test, net, np.random.default_rng(seed))
     pm, ps, cf, hr, dtp = [], [], [], [], []
     for r in pr.itertuples():

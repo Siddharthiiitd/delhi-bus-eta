@@ -1,0 +1,51 @@
+{
+  "source": "real",
+  "train_from": "2026-11-23",
+  "train_until": "2026-11-23 21:30",
+  "train_until_t": 1795469400.0,
+  "built": "2026-11-23T22:25:05",
+  "params": {
+    "seg_m": 250.0,
+    "gate_m": 40.0,
+    "min_passes": 4,
+    "min_days": 1,
+    "h3_res": 9
+  },
+  "ref_hour": {
+    "wd": 21
+  },
+  "quality": {
+    "raw_rows": 1551026,
+    "duplicate_or_null_rows": 48881,
+    "unknown_route_rows": 23089,
+    "off_route_rows": 389433,
+    "clean_rows_used_for_training": 872692,
+    "pairs_candidate": 859462,
+    "pairs_dropped_time_gap": 55366,
+    "pairs_dropped_speed_outlier": 23639,
+    "moving_samples": 714818,
+    "dwell_visits": 17099,
+    "table_cells": {
+      "level1": 3965,
+      "level2": 92457,
+      "level3": 93770,
+      "level4": 1794
+    },
+    "coverage_pct": {
+      "wd": {
+        "level1": 0.0,
+        "level2": 0.6,
+        "level3": 17.2,
+        "level4": 1.0,
+        "level5": 81.2
+      },
+      "we": {
+        "level1": 0.0,
+        "level2": 0.0,
+        "level3": 0.0,
+        "level4": 0.0,
+        "level5": 100.0
+      }
+    }
+  }
+}

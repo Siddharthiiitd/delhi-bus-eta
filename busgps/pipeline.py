@@ -237,18 +237,28 @@ def coverage(model, net):
     return out
 
 
-def run(gtfs, gps_path, out, train_until=None, tz=5.5, cols=None):
+def cutoff_t(train_until):
+    """'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM' (Delhi time) -> seconds on the same clock as df.t."""
+    return (pd.Timestamp(train_until) - pd.Timestamp("1970-01-01")).total_seconds() if train_until else None
+
+
+def run(gtfs, gps_path, out, train_until=None, tz=5.5, cols=None, min_n=None, min_days=None):
+    global MIN_N, MIN_DAYS
+    if min_n is not None:
+        MIN_N = min_n
+    if min_days is not None:
+        MIN_DAYS = min_days
     os.makedirs(out, exist_ok=True)
     net = load_gtfs(gtfs)
     gps = load_gps(gps_path, cols)
     q = {}
     df = prepare(gps, net, tz, q)
     if train_until:
-        df = df[df.date < train_until]
+        df = df[df.t < cutoff_t(train_until)]
     q["clean_rows_used_for_training"] = int(len(df))
     pairs = make_pairs(df, net, q)
     synthetic = os.path.exists(os.path.join(gtfs, "SYNTHETIC.txt"))
-    meta = dict(source="synthetic" if synthetic else "real", train_from=df.date.min(), train_until=train_until or df.date.max(),
+    meta = dict(source="synthetic" if synthetic else "real", train_from=df.date.min(), train_until=train_until or df.date.max(), train_until_t=cutoff_t(train_until),
                 built=dt.datetime.now().isoformat(timespec="seconds"),
                 params=dict(seg_m=SEG, gate_m=GATE, min_passes=MIN_N, min_days=MIN_DAYS, h3_res=H3_RES))
     model = build_model(pairs, net, q, meta)
@@ -293,11 +303,13 @@ if __name__ == "__main__":
     ap.add_argument("--out", required=True)
     ap.add_argument("--train-until", default=None, help="exclusive YYYY-MM-DD; later days are held out")
     ap.add_argument("--tz", type=float, default=5.5, help="hours to add to UTC timestamps (Delhi 5.5)")
+    ap.add_argument("--min-days", type=int, default=None)
+    ap.add_argument("--min-n", type=int, default=None)
     ap.add_argument("--cols", default=None, help='JSON map of your column names, e.g. \'{"lat":"latitude","vid":"vehicle_id"}\'')
     a = ap.parse_args()
     if not a.gps:
         run_timetable_only(a.gtfs, a.out)
         print("timetable-only model written to", a.out)
     else:
-        m, _ = run(a.gtfs, a.gps, a.out, a.train_until, a.tz, json.loads(a.cols) if a.cols else None)
+        m, _ = run(a.gtfs, a.gps, a.out, a.train_until, a.tz, json.loads(a.cols) if a.cols else None, a.min_n, a.min_days)
         print(json.dumps(m.meta["quality"], indent=2, default=str))
