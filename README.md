@@ -181,6 +181,22 @@ On a Unix-like shell with `sh` available, it can be run from the repository root
 ```bash
 sh run_demo.sh
 ```
+### Run the synthetic demo on Windows PowerShell
+
+Activate your virtual environment and run these commands from the repository root:
+
+```powershell
+python -m pip install -r requirements.txt
+
+python -m busgps.synth --out data/synth
+
+python -m busgps.pipeline --gtfs data/synth --gps data/synth/gps.csv.gz --out artifacts/synth --train-until 2026-11-05
+
+python -m busgps.validate --gps data/synth/gps.csv.gz --artifacts artifacts/synth
+
+$env:ARTIFACTS = "artifacts/synth"
+python -m uvicorn busgps.api:app --host 127.0.0.1 --port 8000
+```
 
 ### Run the synthetic demo on Windows PowerShell
 
