@@ -229,7 +229,7 @@ Do not commit API keys, feed credentials, private raw GPS recordings or large ge
 
 ## Team
 
-- Team name: [SAFARAI]
+- Team name: SAFARAI
 - Members: Siddharth Verma & Pranav Aggarwal
 
 ## Acknowledgements
